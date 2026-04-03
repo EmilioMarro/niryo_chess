@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: common
+Description: Description of common
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/common/include
+Libs: -L/home/niryo/catkin_ws/devel/lib -lcommon
+Requires: niryo_robot_msgs roscpp

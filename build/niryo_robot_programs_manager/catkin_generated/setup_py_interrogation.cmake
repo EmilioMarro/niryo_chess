@@ -1,0 +1,6 @@
+set(niryo_robot_programs_manager_SETUP_PY_VERSION "4.0.1")
+set(niryo_robot_programs_manager_SETUP_PY_SCRIPTS "")
+set(niryo_robot_programs_manager_SETUP_PY_PACKAGES "niryo_robot_programs_manager")
+set(niryo_robot_programs_manager_SETUP_PY_PACKAGE_DIRS "src/niryo_robot_programs_manager")
+set(niryo_robot_programs_manager_SETUP_PY_MODULES "")
+set(niryo_robot_programs_manager_SETUP_PY_MODULE_DIRS "")

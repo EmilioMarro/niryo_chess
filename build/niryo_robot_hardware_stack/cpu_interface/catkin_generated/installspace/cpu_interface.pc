@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/install
+
+Name: cpu_interface
+Description: Description of cpu_interface
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/install/include
+Libs: -L/home/niryo/catkin_ws/install/lib -lcpu_interface
+Requires: common roscpp

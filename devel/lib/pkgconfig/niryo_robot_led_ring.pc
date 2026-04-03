@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: niryo_robot_led_ring
+Description: Description of niryo_robot_led_ring
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/devel/include
+Libs: -L/home/niryo/catkin_ws/devel/lib 
+Requires: message_runtime niryo_robot_msgs std_msgs visualization_msgs

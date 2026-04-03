@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/install
+
+Name: can_driver
+Description: Description of can_driver
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/install/include
+Libs: -L/home/niryo/catkin_ws/install/lib -lcan_driver
+Requires: common mcp_can_rpi message_runtime niryo_robot_msgs roscpp std_msgs

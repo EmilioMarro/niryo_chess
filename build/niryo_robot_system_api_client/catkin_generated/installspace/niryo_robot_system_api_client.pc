@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/install
+
+Name: niryo_robot_system_api_client
+Description: Description of niryo_robot_system_api_client
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/install/include
+Libs: -L/home/niryo/catkin_ws/install/lib 
+Requires: message_runtime

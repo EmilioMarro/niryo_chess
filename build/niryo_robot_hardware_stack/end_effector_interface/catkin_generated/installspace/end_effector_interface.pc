@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/install
+
+Name: end_effector_interface
+Description: Description of end_effector_interface
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/install/include
+Libs: -L/home/niryo/catkin_ws/install/lib -lend_effector_interface
+Requires: common message_runtime niryo_robot_msgs roscpp std_msgs ttl_driver

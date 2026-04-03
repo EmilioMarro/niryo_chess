@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: niryo_robot_programs_manager
+Description: Description of niryo_robot_programs_manager
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/devel/include
+Libs: -L/home/niryo/catkin_ws/devel/lib 
+Requires: message_runtime

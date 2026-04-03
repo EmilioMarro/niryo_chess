@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: cpu_interface
+Description: Description of cpu_interface
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/cpu_interface/include
+Libs: -L/home/niryo/catkin_ws/devel/lib -lcpu_interface
+Requires: common roscpp

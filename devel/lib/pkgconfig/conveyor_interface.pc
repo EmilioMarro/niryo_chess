@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: conveyor_interface
+Description: Description of conveyor_interface
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/devel/include -I/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/conveyor_interface/include
+Libs: -L/home/niryo/catkin_ws/devel/lib -lconveyor_interface
+Requires: can_driver message_runtime roscpp std_msgs ttl_driver common

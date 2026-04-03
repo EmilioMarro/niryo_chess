@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: ttl_driver
+Description: Description of ttl_driver
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/devel/include -I/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/ttl_driver/include
+Libs: -L/home/niryo/catkin_ws/devel/lib -lttl_driver
+Requires: common dynamixel_sdk message_runtime niryo_robot_msgs roscpp std_msgs

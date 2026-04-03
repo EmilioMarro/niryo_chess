@@ -1,0 +1,1 @@
+set(ORDERED_PATHS "/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/dynamixel_sdk/include;/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/serial/include")

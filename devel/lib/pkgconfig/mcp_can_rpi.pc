@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/devel
+
+Name: mcp_can_rpi
+Description: Description of mcp_can_rpi
+Version: 1.0.0
+Cflags: -I/home/niryo/catkin_ws/src/niryo_robot_hardware_stack/mcp_can_rpi/include
+Libs: -L/home/niryo/catkin_ws/devel/lib -lmcp_can_rpi
+Requires: 

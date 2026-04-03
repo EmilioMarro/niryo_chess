@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/install
+
+Name: ttl_debug_tools
+Description: Description of ttl_debug_tools
+Version: 4.0.1
+Cflags: 
+Libs: -L/home/niryo/catkin_ws/install/lib 
+Requires: dynamixel_sdk

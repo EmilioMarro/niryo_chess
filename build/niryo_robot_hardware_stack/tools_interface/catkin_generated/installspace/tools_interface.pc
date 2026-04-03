@@ -1,0 +1,8 @@
+prefix=/home/niryo/catkin_ws/install
+
+Name: tools_interface
+Description: Description of tools_interface
+Version: 4.0.1
+Cflags: -I/home/niryo/catkin_ws/install/include
+Libs: -L/home/niryo/catkin_ws/install/lib -ltools_interface
+Requires: common message_runtime roscpp std_msgs ttl_driver
