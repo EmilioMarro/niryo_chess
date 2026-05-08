@@ -1,0 +1,55 @@
+niryo@niryo_one_pi3:~$ rosparam get /niryo_robot_tools_commander
+ 
+available_commands: [open_gripper, close_gripper]
+  id: 11
+  name: Gripper 1
+  specs:
+    close_hold_torque: 128
+    close_max_torque: 1023
+    close_position: 230
+    close_speed: 300
+    limit_close_speed: {max: 1023, min: 1}
+    limit_open_speed: {max: 1023, min: 1}
+    open_hold_torque: 128
+    open_max_torque: 1023
+    open_position: 600
+    open_speed: 300
+  transformation:
+    quaternion: [0.0, 0.0, 0.0, 1.0]
+    translation: [0.085, 0.0, -0.0075]
+  type: gripper
+
+
+niryo@niryo_one_pi3:~$ rosparam get /niryo_robot_tools_commander
+
+Gripper Commands
+id: 13
+  name: Gripper 3
+  specs:
+    close_hold_torque: 160
+    close_max_torque: 1023
+    close_position: 220
+    close_speed: 300
+    limit_close_speed: {max: 1023, min: 1}
+    limit_open_speed: {max: 1023, min: 1}
+    open_hold_torque: 128
+    open_max_torque: 1023
+    open_position: 450
+    open_speed: 300
+  transformation:
+    quaternion: [0.0, 0.0, 0.0, 1.0]
+    translation: [0.13, 0.0, -0.0175]
+
+rosservice call /niryo_robot_tools_commander/update_tool "{}"
+
+rosservice call /niryo_robot/tools/open_gripper "id: 13
+position: 600
+speed: 300
+hold_torque: 128
+max_torque: 1023"
+
+rosservice call /niryo_robot/tools/close_gripper "id: 13
+position: 230
+speed: 300
+hold_torque: 128
+max_torque: 1023"
