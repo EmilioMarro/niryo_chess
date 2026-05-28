@@ -10,7 +10,6 @@ pixel_map = None
 
 #pubs
 fen_pub = None
-board_pub = None
 
 #turno
 turn = 'w'
@@ -211,7 +210,6 @@ def on_detections(msg):
     fen = board_to_fen(board, turn)
 
     fen_pub.publish(fen)
-    board_pub.publish(json.dumps(board))
 
     rospy.loginfo("FEN: {}".format(fen))
 
@@ -239,12 +237,11 @@ Output:
     - /board_state
 """
 def main():
-    global fen_pub, board_pub
+    global fen_pub
     rospy.init_node('fen_node')
     load_pixel_map()
 
     fen_pub = rospy.Publisher ('/fen', String, queue_size=1)
-    board_pub = rospy.Publisher('/board_state', String, queue_size=1)
 
     rospy.Subscriber('/board_detection', String, on_detections)
 
