@@ -1,0 +1,197 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+state_node.py
+Nodo ROS que actúa como controlador central del flujo de juego.
+
+Suscribe:
+    /fen        (String) — FEN publicado por fen_node en cada frame
+    /move_done  (String) — confirmación "ok" del kinematics_node
+
+Publica:
+    /fen_for_stockfish  (String) — FEN habilitado solo en turno de negras
+
+Lógica de estados:
+    ESPERANDO_HUMANO  — turno de blancas ('w'): bloquea cualquier envío
+                        a Stockfish y espera a que el humano mueva.
+    SOLICITANDO_JUGADA — turno de negras ('b'), robot no ha pedido jugada
+                        aún: envía el FEN a Stockfish una única vez.
+    ESPERANDO_ROBOT   — Stockfish ya respondió y kinematics está
+                        ejecutando: bloquea nuevos envíos hasta recibir
+                        /move_done.
+
+Detalle del filtro de estabilidad:
+    El cv_node publica a 10 Hz. Entre frame y frame el FEN puede cambiar
+    levemente por falsos positivos de la cámara. Para evitar que el nodo
+    envíe un FEN incorrecto a Stockfish, se requiere que el mismo FEN
+    se reciba FEN_STABLE_COUNT veces consecutivas antes de procesarlo.
+"""
+
+import rospy  # type: ignore
+from std_msgs.msg import String  # type: ignore
+
+# ── Configuración ─────────────────────────────────────────────────────────────
+
+# Número de frames consecutivos con el mismo FEN antes de considerarlo estable.
+# A 10 Hz del cv_node, 5 frames = 0.5 s de estabilidad.
+FEN_STABLE_COUNT = 5
+
+# ── Estados internos ──────────────────────────────────────────────────────────
+
+STATE_ESPERANDO_HUMANO   = 'ESPERANDO_HUMANO'
+STATE_SOLICITANDO_JUGADA = 'SOLICITANDO_JUGADA'
+STATE_ESPERANDO_ROBOT    = 'ESPERANDO_ROBOT'
+
+# ── Variables globales ────────────────────────────────────────────────────────
+
+state              = STATE_ESPERANDO_HUMANO
+fen_for_sf_pub     = None   # publisher hacia /fen_for_stockfish
+
+# Filtro de estabilidad
+last_fen           = None   # último FEN visto
+fen_stable_counter = 0      # cuántas veces consecutivas se ha visto ese FEN
+last_processed_fen = None   # FEN que ya fue enviado a Stockfish en este turno
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def extract_turn(fen):
+    """
+    Extrae el campo de turno del FEN.
+
+    El FEN tiene 6 campos separados por espacios:
+        <posicion> <turno> <enroque> <enpassant> <semi> <full>
+
+    Input:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    Output: "b"
+
+    Retorna None si el FEN está malformado.
+    """
+    parts = fen.strip().split(' ')
+    if len(parts) < 2:
+        return None
+    turn = parts[1]
+    if turn not in ('w', 'b'):
+        return None
+    return turn
+
+
+def log_state(msg=''):
+    rospy.loginfo("[state_node] Estado: {}  {}".format(state, msg))
+
+
+# ── Callback: llega un nuevo FEN desde fen_node ──────────────────────────────
+
+def on_fen(msg):
+    """
+    Recibe FEN a ~10 Hz. Aplica filtro de estabilidad y gestiona la
+    máquina de estados según el turno extraído del FEN.
+    """
+    global state, last_fen, fen_stable_counter, last_processed_fen
+
+    fen = msg.data.strip()
+    if not fen:
+        return
+
+    # ── Filtro de estabilidad ─────────────────────────────────────────────
+    if fen == last_fen:
+        fen_stable_counter += 1
+    else:
+        last_fen           = fen
+        fen_stable_counter = 1
+        return  # FEN recién cambiado, esperar confirmación
+
+    if fen_stable_counter < FEN_STABLE_COUNT:
+        return  # aún no es estable
+
+    # FEN estable a partir de aquí
+    # ── Máquina de estados ────────────────────────────────────────────────
+
+    turn = extract_turn(fen)
+    if turn is None:
+        rospy.logwarn("[state_node] FEN malformado, ignorando: '{}'".format(fen))
+        return
+
+    # ── ESPERANDO_HUMANO: turno de blancas ───────────────────────────────
+    if state == STATE_ESPERANDO_HUMANO:
+        if turn == 'w':
+            # Sigue siendo turno del humano, no hacer nada
+            return
+
+        if turn == 'b':
+            # El humano acaba de mover → cambiar a turno del robot
+            rospy.loginfo("[state_node] Turno del humano terminado. Turno del robot (negras)")
+            state              = STATE_SOLICITANDO_JUGADA
+            last_processed_fen = None   # reset para este turno
+            log_state()
+
+    # ── SOLICITANDO_JUGADA: enviar FEN a Stockfish una sola vez ──────────
+    if state == STATE_SOLICITANDO_JUGADA:
+        if turn != 'b':
+            # El FEN ya cambió a blancas antes de haber enviado — caso raro,
+            # significa que algo se saltó. Volver a esperar.
+            rospy.logwarn("[state_node] FEN cambió a 'w' antes de solicitar jugada, reset")
+            state = STATE_ESPERANDO_HUMANO
+            log_state()
+            return
+
+        if fen == last_processed_fen:
+            # Ya enviamos este FEN exacto, no reenviar
+            return
+
+        # Enviar a Stockfish
+        rospy.loginfo("[state_node] Enviando FEN a Stockfish: {}".format(fen))
+        fen_for_sf_pub.publish(fen)
+        last_processed_fen = fen
+        state              = STATE_ESPERANDO_ROBOT
+        log_state("(FEN enviado, esperando ejecución del robot)")
+
+    # ── ESPERANDO_ROBOT: kinematics está ejecutando, no hacer nada ───────
+    elif state == STATE_ESPERANDO_ROBOT:
+        # Ignorar todos los FEN hasta que llegue /move_done
+        pass
+
+
+# ── Callback: el robot terminó su movimiento ─────────────────────────────────
+
+def on_move_done(msg):
+    """
+    Recibe "ok" desde kinematics_node cuando el robot completó su jugada.
+    Reinicia el estado a ESPERANDO_HUMANO para el siguiente turno.
+    """
+    global state, last_fen, fen_stable_counter, last_processed_fen
+
+    if msg.data.strip() != 'ok':
+        rospy.logwarn("[state_node] /move_done con valor inesperado: '{}'".format(msg.data))
+        return
+
+    rospy.loginfo("[state_node] Robot completó su jugada. Turno del humano (blancas)")
+
+    # Reset completo para el siguiente ciclo
+    state              = STATE_ESPERANDO_HUMANO
+    last_fen           = None
+    fen_stable_counter = 0
+    last_processed_fen = None
+
+    log_state()
+
+
+# ── Inicialización ────────────────────────────────────────────────────────────
+
+def main():
+    global fen_for_sf_pub
+
+    rospy.init_node('state_node')
+
+    fen_for_sf_pub = rospy.Publisher('/fen_for_stockfish', String, queue_size=1)
+
+    rospy.Subscriber('/fen',       String, on_fen)
+    rospy.Subscriber('/move_done', String, on_move_done)
+
+    rospy.loginfo("[state_node] Nodo listo. Estado inicial: {}".format(state))
+    rospy.loginfo("[state_node] El robot juega con NEGRAS. El humano juega con BLANCAS.")
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    main()
