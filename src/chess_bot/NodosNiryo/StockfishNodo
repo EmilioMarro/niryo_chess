@@ -1,0 +1,182 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+stockfish_node.py
+Nodo ROS que recibe un FEN, consulta Stockfish 7 y publica el mejor
+movimiento en formato UCI.
+
+Suscribe:  /fen_for_stockfish  (String, FEN completo)
+Publica:   /best_move          (String, UCI — ej. "e2e4")
+
+Comunicación con Stockfish vía subprocess (stdin/stdout, protocolo UCI).
+El proceso se abre una sola vez al iniciar el nodo y se reutiliza durante
+toda la sesión para evitar la latencia de arranque en cada jugada.
+"""
+
+import rospy      # type: ignore
+import subprocess
+import os
+
+from std_msgs.msg import String  # type: ignore
+
+# ── Configuración ─────────────────────────────────────────────────────────────
+
+# Ruta al binario de Stockfish 7. Ajusta si está en otra ubicación.
+STOCKFISH_PATH = '/usr/games/stockfish'
+
+# Tiempo de análisis en milisegundos.
+# 1000 ms es suficiente para Stockfish 7 en partidas normales.
+MOVETIME_MS = 1000
+
+# ── Estado global ─────────────────────────────────────────────────────────────
+
+stockfish_proc = None   # proceso Stockfish abierto al inicio
+best_move_pub  = None   # publisher de /best_move
+
+
+# ── Manejo del proceso Stockfish ──────────────────────────────────────────────
+
+def start_stockfish():
+    """
+    Abre el proceso de Stockfish 7 como subproceso persistente.
+    Se comunica por stdin/stdout usando el protocolo UCI.
+
+    El flag bufsize=1 (line-buffered) es importante en Python 2:
+    garantiza que cada línea enviada llega completa a Stockfish
+    sin quedar retenida en el buffer.
+    """
+    global stockfish_proc
+
+    if not os.path.isfile(STOCKFISH_PATH):
+        rospy.logfatal("[stockfish] Binario no encontrado en: {}".format(STOCKFISH_PATH))
+        raise IOError("Stockfish no encontrado: {}".format(STOCKFISH_PATH))
+
+    stockfish_proc = subprocess.Popen(
+        [STOCKFISH_PATH],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=1,              # line-buffered
+    )
+
+    # Inicializar protocolo UCI y esperar confirmación "uciok"
+    _send('uci')
+    _wait_for('uciok')
+
+    # Limpiar cualquier estado previo
+    _send('ucinewgame')
+    _send('isready')
+    _wait_for('readyok')
+
+    rospy.loginfo("[stockfish] Proceso iniciado y listo (UCI handshake OK)")
+
+
+def _send(cmd):
+    """Envía una línea de comando a Stockfish por stdin."""
+    stockfish_proc.stdin.write(cmd + '\n')
+    stockfish_proc.stdin.flush()
+
+
+def _wait_for(token):
+    """
+    Lee líneas de stdout hasta encontrar una que empiece con `token`.
+    Descarta el resto. Necesario para sincronizar el handshake UCI.
+    """
+    while True:
+        line = stockfish_proc.stdout.readline().strip()
+        if line.startswith(token):
+            return line
+
+
+def get_best_move(fen):
+    """
+    Envía el FEN a Stockfish y devuelve el mejor movimiento en UCI.
+
+    Protocolo:
+        position fen <fen>
+        go movetime <ms>
+        → lee stdout hasta encontrar "bestmove <uci>"
+
+    Input:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    Output: "e7e5"
+
+    Retorna None si Stockfish responde "bestmove (none)" (sin movimientos
+    legales — jaque mate o tablas) o si ocurre un error de lectura.
+    """
+    _send('position fen {}'.format(fen))
+    _send('go movetime {}'.format(MOVETIME_MS))
+
+    # Leer líneas hasta obtener la línea "bestmove ..."
+    while True:
+        line = stockfish_proc.stdout.readline().strip()
+        if not line:
+            # Stockfish cerró stdout inesperadamente
+            rospy.logerr("[stockfish] stdout cerrado inesperadamente")
+            return None
+
+        if line.startswith('bestmove'):
+            # Formato: "bestmove e7e5 ponder d2d4"
+            parts = line.split()
+            move = parts[1] if len(parts) > 1 else None
+
+            if move == '(none)' or move is None:
+                rospy.logwarn("[stockfish] Sin movimientos legales (bestmove none)")
+                return None
+
+            return move
+
+
+# ── Callback del topic /fen_for_stockfish ─────────────────────────────────────
+
+def on_fen(msg):
+    """
+    Recibe el FEN desde state_node, consulta Stockfish y publica /best_move.
+    """
+    fen = msg.data.strip()
+    rospy.loginfo("[stockfish] FEN recibido: {}".format(fen))
+
+    if not fen:
+        rospy.logwarn("[stockfish] FEN vacío, ignorando")
+        return
+
+    move = get_best_move(fen)
+
+    if move is None:
+        rospy.logerr("[stockfish] No se obtuvo movimiento para FEN: {}".format(fen))
+        return
+
+    rospy.loginfo("[stockfish] Mejor jugada: {}".format(move))
+    best_move_pub.publish(move)
+
+
+# ── Inicialización ────────────────────────────────────────────────────────────
+
+def shutdown_hook():
+    """Cierra Stockfish limpiamente al detener el nodo."""
+    global stockfish_proc
+    if stockfish_proc is not None:
+        try:
+            _send('quit')
+            stockfish_proc.wait()
+        except Exception:
+            stockfish_proc.kill()
+        rospy.loginfo("[stockfish] Proceso cerrado")
+
+
+def main():
+    global best_move_pub
+
+    rospy.init_node('stockfish_node')
+    rospy.on_shutdown(shutdown_hook)
+
+    start_stockfish()
+
+    best_move_pub = rospy.Publisher('/best_move', String, queue_size=1)
+    rospy.Subscriber('/fen_for_stockfish', String, on_fen)
+
+    rospy.loginfo("[stockfish] Nodo listo. Esperando /fen_for_stockfish ...")
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    main()
